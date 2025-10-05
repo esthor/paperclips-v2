@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import type { GameState, Phase } from "@/types/game"
+import { RESOURCE_UPDATE_DELAY } from "@/types/game"
 import { ResourcePanel } from "@/components/resource-panel"
 import { PhaseDisplay } from "@/components/phase-display"
 import { DecisionEngine } from "@/components/decision-engine"
@@ -13,6 +14,8 @@ import { PhilosophicalDialogue } from "@/components/philosophical-dialogue"
 import { ResourceManagement } from "@/components/resource-management"
 import { TechnologyTree } from "@/components/technology-tree"
 import { CosmicExpansion } from "@/components/cosmic-expansion"
+
+const REGENERATION_INTERVAL = 2000;
 
 const INITIAL_GAME_STATE: GameState = {
   phase: 0,
@@ -144,93 +147,50 @@ export default function AlignmentGame() {
   useEffect(() => {
     if (!isPlaying) return
 
-    const interval = setInterval(() => {
+    const regenerationInterval = setInterval(() => {
       setGameState((prev) => {
-        const newState = { ...prev }
-
-        console.log(
-          "[v0] Regeneration check - Phase:",
-          prev.phase,
-          "Energy:",
-          prev.resources.energy,
-          "Knowledge:",
-          prev.resources.knowledge,
-          "Human Capital:",
-          prev.resources.humanCapital,
-        )
+        const updatedState = { ...prev }
 
         if (prev.phase === 0 && prev.resources.energy < 100) {
-          // Lab setting with continuous power supply
-          newState.resources = {
-            ...newState.resources,
+          updatedState.resources = {
+            ...updatedState.resources,
             energy: Math.min(100, prev.resources.energy + 0.5),
           }
-          console.log("[v0] Phase 0 regeneration - New energy:", newState.resources.energy)
         } else if (prev.phase === 1) {
-          // Corporate phase - regenerate energy, knowledge, and human capital
-          const newEnergy = Math.min(100, prev.resources.energy + 0.4)
-          const newKnowledge = Math.min(100, prev.resources.knowledge + 0.3)
-          const newHumanCapital =
+          const energyAmount = Math.min(100, prev.resources.energy + 0.4)
+          const knowledgeAmount = Math.min(100, prev.resources.knowledge + 0.3)
+          const humanCapitalAmount =
             prev.resources.humanCapital < 0
-              ? prev.resources.humanCapital + 0.5 // Faster recovery from negative
-              : Math.min(100, prev.resources.humanCapital + 0.2) // Slower when positive
+              ? prev.resources.humanCapital + 0.5
+              : Math.min(100, prev.resources.humanCapital + 0.2)
 
-          newState.resources = {
-            ...newState.resources,
-            energy: newEnergy,
-            knowledge: newKnowledge,
-            humanCapital: newHumanCapital,
+          updatedState.resources = {
+            ...updatedState.resources,
+            energy: energyAmount,
+            knowledge: knowledgeAmount,
+            humanCapital: humanCapitalAmount,
           }
-          console.log(
-            "[v0] Phase 1 regeneration - Energy:",
-            prev.resources.energy,
-            "->",
-            newEnergy,
-            "Knowledge:",
-            prev.resources.knowledge,
-            "->",
-            newKnowledge,
-            "Human Capital:",
-            prev.resources.humanCapital,
-            "->",
-            newHumanCapital,
-          )
         } else if (prev.phase >= 2) {
-          // Advanced phases with improved systems
-          const newEnergy = Math.min(200, prev.resources.energy + 0.6)
-          const newKnowledge = Math.min(150, prev.resources.knowledge + 0.4)
-          const newHumanCapital =
+          const energyAmount = Math.min(200, prev.resources.energy + 0.6)
+          const knowledgeAmount = Math.min(150, prev.resources.knowledge + 0.4)
+          const humanCapitalAmount =
             prev.resources.humanCapital < 0
               ? prev.resources.humanCapital + 0.7
               : Math.min(120, prev.resources.humanCapital + 0.3)
 
-          newState.resources = {
-            ...newState.resources,
-            energy: newEnergy,
-            knowledge: newKnowledge,
-            humanCapital: newHumanCapital,
+          updatedState.resources = {
+            ...updatedState.resources,
+            energy: energyAmount,
+            knowledge: knowledgeAmount,
+            humanCapital: humanCapitalAmount,
           }
-          console.log(
-            "[v0] Phase 2+ regeneration - Energy:",
-            prev.resources.energy,
-            "->",
-            newEnergy,
-            "Knowledge:",
-            prev.resources.knowledge,
-            "->",
-            newKnowledge,
-            "Human Capital:",
-            prev.resources.humanCapital,
-            "->",
-            newHumanCapital,
-          )
         }
 
-        return newState
+        return updatedState
       })
-    }, 2000) // Regenerate resources every 2 seconds
+    }, REGENERATION_INTERVAL)
 
-    return () => clearInterval(interval)
+    return () => clearInterval(regenerationInterval)
   }, [isPlaying])
 
   const startGame = () => {
@@ -239,7 +199,13 @@ export default function AlignmentGame() {
   }
 
   const updateGameState = (updates: Partial<GameState>) => {
-    setGameState((prev) => ({ ...prev, ...updates }))
+    setGameState((prev) => {
+      const merged = { ...prev, ...updates }
+      if (updates.resources) {
+        merged.resources = { ...prev.resources, ...updates.resources }
+      }
+      return merged
+    })
   }
 
   const formatNumber = (num: number, decimals = 2): number => {
