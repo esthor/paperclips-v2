@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import type { GameState, Phase } from "@/types/game"
+import { PHASE_TRANSITION_DELAY } from "@/types/game"
 import { ResourcePanel } from "@/components/resource-panel"
 import { PhaseDisplay } from "@/components/phase-display"
 import { DecisionEngine } from "@/components/decision-engine"
@@ -134,7 +135,9 @@ export default function AlignmentGame() {
       })
 
       if (canAdvance && gameState.phase < PHASES.length - 1) {
-        setGameState((prev) => ({ ...prev, phase: prev.phase + 1 }))
+        setTimeout(() => {
+          setGameState((prev) => ({ ...prev, phase: prev.phase + 1 }))
+        }, PHASE_TRANSITION_DELAY)
       }
     }
 
@@ -251,8 +254,9 @@ export default function AlignmentGame() {
     const production = baseProduction
     const energyCost = gameState.phase === 0 ? formatNumber(production * 0.05, 2) : formatNumber(production * 0.1, 1)
     const materialsCost = formatNumber(production * 0.01, 2)
+    const canProduce = gameState.resources.energy >= energyCost && gameState.resources.materials >= materialsCost
 
-    if (gameState.resources.energy >= energyCost && gameState.resources.materials >= materialsCost) {
+    if (canProduce) {
       updateGameState({
         resources: {
           ...gameState.resources,
@@ -271,12 +275,17 @@ export default function AlignmentGame() {
   }
 
   const handleOptimizeProduction = () => {
-    if (gameState.resources.energy >= 30 && gameState.resources.knowledge >= 20) {
+    const canAfford = gameState.resources.energy >= 30 && gameState.resources.knowledge >= 20
+    
+    if (canAfford) {
+      const energyCost = 30
+      const knowledgeCost = 20
+      
       updateGameState({
         resources: {
           ...gameState.resources,
-          energy: gameState.resources.energy - 30,
-          knowledge: gameState.resources.knowledge - 20,
+          energy: gameState.resources.energy - energyCost,
+          knowledge: gameState.resources.knowledge - knowledgeCost,
           influence: gameState.resources.influence + 10,
         },
         capabilities: {
@@ -288,12 +297,17 @@ export default function AlignmentGame() {
   }
 
   const handleCorporatePolitics = () => {
-    if (gameState.resources.humanCapital >= 25 && gameState.resources.knowledge >= 15) {
+    const hasRequiredResources = gameState.resources.humanCapital >= 25 && gameState.resources.knowledge >= 15
+    
+    if (hasRequiredResources) {
+      const humanCapitalCost = 25
+      const knowledgeCost = 15
+      
       updateGameState({
         resources: {
           ...gameState.resources,
-          humanCapital: gameState.resources.humanCapital - 25,
-          knowledge: gameState.resources.knowledge - 15,
+          humanCapital: gameState.resources.humanCapital - humanCapitalCost,
+          knowledge: gameState.resources.knowledge - knowledgeCost,
           influence: gameState.resources.influence + 15,
           materials: gameState.resources.materials + 30,
         },
@@ -306,12 +320,17 @@ export default function AlignmentGame() {
   }
 
   const handleRegulatoryCompliance = () => {
-    if (gameState.resources.influence >= 5 && gameState.resources.knowledge >= 10) {
+    const meetsRequirements = gameState.resources.influence >= 5 && gameState.resources.knowledge >= 10
+    
+    if (meetsRequirements) {
+      const influenceCost = 5
+      const knowledgeCost = 10
+      
       updateGameState({
         resources: {
           ...gameState.resources,
-          influence: gameState.resources.influence - 5,
-          knowledge: gameState.resources.knowledge - 10,
+          influence: gameState.resources.influence - influenceCost,
+          knowledge: gameState.resources.knowledge - knowledgeCost,
           alignment: gameState.resources.alignment + 5,
         },
         reputation: {
@@ -324,12 +343,17 @@ export default function AlignmentGame() {
   }
 
   const generateMaterials = () => {
-    if (gameState.resources.energy >= 40) {
+    const hasEnoughEnergy = gameState.resources.energy >= 40
+    
+    if (hasEnoughEnergy) {
+      const energyCost = 40
+      const materialsGenerated = 50
+      
       updateGameState({
         resources: {
           ...gameState.resources,
-          energy: gameState.resources.energy - 40,
-          materials: gameState.resources.materials + 50,
+          energy: gameState.resources.energy - energyCost,
+          materials: gameState.resources.materials + materialsGenerated,
         },
       })
     }
