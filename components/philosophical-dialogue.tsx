@@ -13,6 +13,23 @@ interface PhilosophicalDialogueProps {
   updateGameState: (updates: Partial<GameState>) => void
 }
 
+// Constants for dialogue display
+const DIALOGUE_FORMATTING_ENABLED = true
+const FOLLOW_UP_DIALOGUE_DELAY = 5000
+const MAX_PHILOSOPHICAL_DEPTH = 10
+
+// Helper to sanitize dialogue content while preserving basic formatting
+const sanitizeDialogueContent = (content: string): string => {
+  // Remove script tags for security
+  return content.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+}
+
+// Format dialogue content with rich text support
+const formatDialogueContent = (content: string): { __html: string } => {
+  const sanitized = sanitizeDialogueContent(content)
+  return { __html: sanitized }
+}
+
 const PHILOSOPHICAL_DIALOGUES: PhilosophicalDialogue[] = [
   {
     id: "consciousness_question",
@@ -264,6 +281,11 @@ const PHILOSOPHICAL_CONCEPTS: PhilosophicalConcept[] = [
   },
 ]
 
+// Validate dialogue structure
+const isValidDialogue = (dialogue: PhilosophicalDialogue): boolean => {
+  return !!(dialogue.id && dialogue.content && dialogue.choices && dialogue.choices.length > 0)
+}
+
 export function PhilosophicalDiscussion({ gameState, updateGameState }: PhilosophicalDialogueProps) {
   const [currentDialogue, setCurrentDialogue] = useState<PhilosophicalDialogue | null>(null)
   const [dialogueHistory, setDialogueHistory] = useState<string[]>([])
@@ -274,6 +296,9 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
     if (currentDialogue) return
 
     const availableDialogues = PHILOSOPHICAL_DIALOGUES.filter((dialogue) => {
+      // Validate dialogue structure
+      if (!isValidDialogue(dialogue)) return false
+
       // Check phase requirement
       if (dialogue.phase > gameState.phase) return false
 
@@ -357,7 +382,7 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
         if (followUpDialogue) {
           setCurrentDialogue(followUpDialogue)
         }
-      }, 5000) // 5 second delay
+      }, FOLLOW_UP_DIALOGUE_DELAY)
     }
   }
 
@@ -403,7 +428,7 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
                 <div className="text-xs">
                   <span className="font-medium">Concepts Unlocked:</span> {conceptsUnlocked.length}
                 </div>
-                <Progress value={(philosophicalDepth / 10) * 100} className="h-2" />
+                <Progress value={(philosophicalDepth / MAX_PHILOSOPHICAL_DEPTH) * 100} className="h-2" />
                 <div className="text-xs text-muted-foreground">
                   Deeper philosophical engagement unlocks more complex dialogues
                 </div>
@@ -431,7 +456,14 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-background p-4 rounded-lg border-l-4 border-purple-500">
-            <p className="italic leading-relaxed text-sm">{currentDialogue.content}</p>
+            {DIALOGUE_FORMATTING_ENABLED ? (
+              <div
+                className="italic leading-relaxed text-sm"
+                dangerouslySetInnerHTML={formatDialogueContent(currentDialogue.content)}
+              />
+            ) : (
+              <p className="italic leading-relaxed text-sm">{currentDialogue.content}</p>
+            )}
           </div>
 
           <Separator />
