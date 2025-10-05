@@ -367,7 +367,7 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
     if (unlockedConcepts.length === 0) return null
 
     return (
-      <Card className="border-indigo-200 bg-indigo-50/30">
+      <Card className="border-indigo-200 bg-indigo-50/30 dark:border-indigo-400/60 dark:bg-indigo-950/30">
         <CardHeader>
           <CardTitle className="text-sm">Philosophical Concepts Explored</CardTitle>
         </CardHeader>
@@ -376,7 +376,7 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
             <div key={concept.id} className="text-xs space-y-1">
               <div className="font-medium">{concept.name}</div>
               <div className="text-muted-foreground">{concept.description}</div>
-              <div className="text-purple-700 italic">{concept.relevance}</div>
+              <div className="text-purple-700 dark:text-purple-200 italic">{concept.relevance}</div>
             </div>
           ))}
         </CardContent>
@@ -388,7 +388,7 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
     return (
       <div className="space-y-4">
         {philosophicalDepth > 0 && (
-          <Card className="border-purple-200 bg-purple-50/30">
+          <Card className="border-purple-200 bg-purple-50/30 dark:border-purple-400/60 dark:bg-purple-950/30">
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-sm">
                 Philosophical Development
@@ -419,7 +419,7 @@ export function PhilosophicalDiscussion({ gameState, updateGameState }: Philosop
 
   return (
     <div className="space-y-4">
-      <Card className="border-purple-200 bg-purple-50/50">
+      <Card className="border-purple-200 bg-purple-50/50 dark:border-purple-400/60 dark:bg-purple-950/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {currentDialogue.title}

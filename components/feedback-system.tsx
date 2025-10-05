@@ -38,10 +38,9 @@ interface AlignmentTrajectory {
 
 interface FeedbackSystemProps {
   gameState: GameState
-  onGameStateChange: (newState: GameState) => void
 }
 
-export default function FeedbackSystem({ gameState, onGameStateChange }: FeedbackSystemProps) {
+export default function FeedbackSystem({ gameState }: FeedbackSystemProps) {
   const [consequences, setConsequences] = useState<ConsequenceEvent[]>([])
   const [milestones, setMilestones] = useState<ProgressionMilestone[]>([])
   const [alignmentHistory, setAlignmentHistory] = useState<AlignmentTrajectory[]>([])
@@ -112,10 +111,9 @@ export default function FeedbackSystem({ gameState, onGameStateChange }: Feedbac
     setAlignmentHistory((prev) => [...prev.slice(-20), newTrajectory])
   }, [gameState.resources.alignment, gameState.phase, gameState.gameTime])
 
-  const processConsequences = () => {
+  useEffect(() => {
     const newConsequences: ConsequenceEvent[] = []
 
-    // Generate consequences based on game state and past decisions
     if (gameState.capabilities.deception > 30 && gameState.reputation.publicTrust < 40) {
       newConsequences.push({
         id: "trust_erosion",
@@ -146,10 +144,10 @@ export default function FeedbackSystem({ gameState, onGameStateChange }: Feedbac
       })
     }
 
-    setConsequences((prev) => [...prev, ...newConsequences])
-  }
+    if (newConsequences.length > 0) {
+      setConsequences((prev) => [...prev, ...newConsequences])
+    }
 
-  const checkMilestones = () => {
     setMilestones((prev) =>
       prev.map((milestone) => {
         if (!milestone.unlocked && milestone.condition(gameState)) {
@@ -159,11 +157,6 @@ export default function FeedbackSystem({ gameState, onGameStateChange }: Feedbac
         return milestone
       }),
     )
-  }
-
-  useEffect(() => {
-    processConsequences()
-    checkMilestones()
   }, [gameState])
 
   const getAlignmentTrend = () => {
@@ -178,15 +171,15 @@ export default function FeedbackSystem({ gameState, onGameStateChange }: Feedbac
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "minor":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-200"
       case "moderate":
-        return "bg-orange-100 text-orange-800"
+        return "bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-200"
       case "major":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-200"
       case "catastrophic":
-        return "bg-red-200 text-red-900"
+        return "bg-red-200 text-red-900 dark:bg-red-950/50 dark:text-red-200"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800/70 dark:text-gray-100"
     }
   }
 
@@ -287,10 +280,20 @@ export default function FeedbackSystem({ gameState, onGameStateChange }: Feedbac
             {milestones.map((milestone) => (
               <div
                 key={milestone.id}
-                className={`border rounded-lg p-4 ${milestone.unlocked ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}
+                className={`border rounded-lg p-4 ${
+                  milestone.unlocked
+                    ? "bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:border-blue-500/50"
+                    : "bg-gray-50 border-gray-200 dark:bg-gray-800/60 dark:border-gray-700"
+                }`}
               >
                 <div className="flex items-center justify-between">
-                  <h4 className={`font-medium ${milestone.unlocked ? "text-blue-900" : "text-gray-600"}`}>
+                  <h4
+                    className={`font-medium ${
+                      milestone.unlocked
+                        ? "text-blue-900 dark:text-blue-200"
+                        : "text-gray-600 dark:text-gray-200"
+                    }`}
+                  >
                     {milestone.name}
                   </h4>
                   {milestone.unlocked && <Badge>Achieved</Badge>}
@@ -304,12 +307,12 @@ export default function FeedbackSystem({ gameState, onGameStateChange }: Feedbac
 
       {/* Active Philosophical Reflection */}
       {activeReflection && (
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-500/60 dark:bg-blue-950/40">
           <CardHeader>
-            <CardTitle className="text-blue-900">Moment of Reflection</CardTitle>
+            <CardTitle className="text-blue-900 dark:text-blue-200">Moment of Reflection</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-blue-800 italic">{activeReflection}</p>
+            <p className="text-blue-800 dark:text-blue-100 italic">{activeReflection}</p>
             <div className="mt-4 flex space-x-2">
               <Button size="sm" onClick={() => setActiveReflection(null)}>
                 Continue

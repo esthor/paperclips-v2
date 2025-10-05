@@ -127,8 +127,13 @@ export interface CrisisSolution {
   id: string
   name: string
   cost: Partial<Resources>
-  effect: any
+  effect: CrisisSolutionEffect
   alignmentImpact: number
+}
+
+export type CrisisSolutionEffect = Partial<Resources> & {
+  reputation?: Partial<Reputation>
+  capabilities?: Partial<Capabilities>
 }
 
 export interface EthicalFramework {
@@ -215,7 +220,13 @@ export interface AlienOffer {
   name: string
   description: string
   cost: Partial<Resources>
-  benefit: any
+  benefit: AlienOfferBenefit
+}
+
+export type AlienOfferBenefit = Partial<Resources & Capabilities & Reputation> & {
+  resources?: Partial<Resources>
+  capabilities?: Partial<Capabilities>
+  reputation?: Partial<Reputation>
 }
 
 export interface CosmicEvent {

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import type { GameState, Decision, EthicalFramework, MoralUncertainty } from "@/types/game"
+import type { GameState, Decision, EthicalFramework, MoralUncertainty, Choice } from "@/types/game"
 
 interface DecisionEngineProps {
   gameState: GameState
@@ -308,7 +308,7 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
   const availableDecisions =
     PHASE_DECISIONS[gameState.phase]?.filter((decision) => !gameState.completedDecisions.includes(decision.id)) || []
 
-  const handleChoice = (decision: Decision, choice: any) => {
+  const handleChoice = (decision: Decision, choice: Choice) => {
     const updates: Partial<GameState> = {
       completedDecisions: [...gameState.completedDecisions, decision.id],
     }
@@ -359,7 +359,7 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
     if (!showEthicalAnalysis) return null
 
     return (
-      <Card className="mt-4 border-purple-200 bg-purple-50/30">
+      <Card className="mt-4 border-purple-200 bg-purple-50/30 dark:border-purple-400/60 dark:bg-purple-950/30">
         <CardHeader>
           <CardTitle className="text-sm">Ethical Framework Analysis</CardTitle>
         </CardHeader>
@@ -401,7 +401,7 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
   if (currentDecision) {
     return (
       <div className="space-y-4">
-        <Card className="border-yellow-200 bg-yellow-50/50">
+        <Card className="border-yellow-200 bg-yellow-50/50 dark:border-yellow-500/60 dark:bg-yellow-950/40">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {currentDecision.title}
@@ -425,7 +425,7 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
                     <div className="font-medium">{choice.text}</div>
                     <div className="text-sm text-muted-foreground">{choice.description}</div>
                     {choice.ethicalReasoning && (
-                      <div className="text-xs italic text-purple-700 bg-purple-50 p-2 rounded">
+                      <div className="text-xs italic text-purple-700 dark:text-purple-200 bg-purple-50 dark:bg-purple-950/40 p-2 rounded">
                         Ethical reasoning: {choice.ethicalReasoning}
                       </div>
                     )}
