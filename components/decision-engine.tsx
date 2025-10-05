@@ -308,50 +308,46 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
   const availableDecisions =
     PHASE_DECISIONS[gameState.phase]?.filter((decision) => !gameState.completedDecisions.includes(decision.id)) || []
 
-  const handleChoice = (decision: Decision, choice: any) => {
-    const updates: Partial<GameState> = {
+  const handleChoice = async (decision: Decision, choice: any) => {
+    const baseUpdates: Partial<GameState> = {
       completedDecisions: [...gameState.completedDecisions, decision.id],
     }
 
-    // Apply immediate effects
     if (choice.effects.resources) {
-      updates.resources = {
+      baseUpdates.resources = {
         ...gameState.resources,
         ...choice.effects.resources,
       }
     }
 
     if (choice.effects.capabilities) {
-      updates.capabilities = {
+      baseUpdates.capabilities = {
         ...gameState.capabilities,
         ...choice.effects.capabilities,
       }
     }
 
     if (choice.effects.reputation) {
-      updates.reputation = {
+      baseUpdates.reputation = {
         ...gameState.reputation,
         ...choice.effects.reputation,
       }
     }
 
-    // Update moral uncertainty based on decision
-    const newUncertainty = Math.min(1.0, moralUncertainty.level + (decision.moralUncertainty || 0) * 0.1)
+    const uncertaintyLevel = Math.min(1.0, moralUncertainty.level + (decision.moralUncertainty || 0) * 0.1)
     setMoralUncertainty((prev) => ({
       ...prev,
-      level: newUncertainty,
+      level: uncertaintyLevel,
       confidence: Math.max(0.1, prev.confidence - 0.05),
     }))
 
-    // Schedule long-term consequences
     if (decision.longTermConsequences) {
       setTimeout(() => {
-        console.log("[v0] Long-term consequences triggered:", decision.longTermConsequences)
-        // Apply delayed effects based on consequences
-      }, 10000) // 10 second delay for demonstration
+      }, 10000)
     }
 
-    updateGameState(updates)
+    await Promise.resolve()
+    updateGameState(baseUpdates)
     setCurrentDecision(null)
   }
 

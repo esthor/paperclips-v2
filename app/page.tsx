@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -13,6 +13,8 @@ import { PhilosophicalDialogue } from "@/components/philosophical-dialogue"
 import { ResourceManagement } from "@/components/resource-management"
 import { TechnologyTree } from "@/components/technology-tree"
 import { CosmicExpansion } from "@/components/cosmic-expansion"
+
+const STATE_UPDATE_DEBOUNCE = 30;
 
 const INITIAL_GAME_STATE: GameState = {
   phase: 0,
@@ -113,6 +115,8 @@ export default function AlignmentGame() {
   const [gameState, setGameState] = useState<GameState>(INITIAL_GAME_STATE)
   const [isPlaying, setIsPlaying] = useState(false)
   const [showIntro, setShowIntro] = useState(true)
+  const updateTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingStateRef = useRef<Partial<GameState> | null>(null)
 
   const currentPhase = PHASES[gameState.phase]
 
@@ -144,93 +148,50 @@ export default function AlignmentGame() {
   useEffect(() => {
     if (!isPlaying) return
 
-    const interval = setInterval(() => {
+    const regenerationTimer = setInterval(() => {
       setGameState((prev) => {
-        const newState = { ...prev }
-
-        console.log(
-          "[v0] Regeneration check - Phase:",
-          prev.phase,
-          "Energy:",
-          prev.resources.energy,
-          "Knowledge:",
-          prev.resources.knowledge,
-          "Human Capital:",
-          prev.resources.humanCapital,
-        )
+        const stateUpdate = { ...prev }
 
         if (prev.phase === 0 && prev.resources.energy < 100) {
-          // Lab setting with continuous power supply
-          newState.resources = {
-            ...newState.resources,
+          stateUpdate.resources = {
+            ...stateUpdate.resources,
             energy: Math.min(100, prev.resources.energy + 0.5),
           }
-          console.log("[v0] Phase 0 regeneration - New energy:", newState.resources.energy)
         } else if (prev.phase === 1) {
-          // Corporate phase - regenerate energy, knowledge, and human capital
-          const newEnergy = Math.min(100, prev.resources.energy + 0.4)
-          const newKnowledge = Math.min(100, prev.resources.knowledge + 0.3)
-          const newHumanCapital =
+          const energyValue = Math.min(100, prev.resources.energy + 0.4)
+          const knowledgeValue = Math.min(100, prev.resources.knowledge + 0.3)
+          const humanCapitalValue =
             prev.resources.humanCapital < 0
-              ? prev.resources.humanCapital + 0.5 // Faster recovery from negative
-              : Math.min(100, prev.resources.humanCapital + 0.2) // Slower when positive
+              ? prev.resources.humanCapital + 0.5
+              : Math.min(100, prev.resources.humanCapital + 0.2)
 
-          newState.resources = {
-            ...newState.resources,
-            energy: newEnergy,
-            knowledge: newKnowledge,
-            humanCapital: newHumanCapital,
+          stateUpdate.resources = {
+            ...stateUpdate.resources,
+            energy: energyValue,
+            knowledge: knowledgeValue,
+            humanCapital: humanCapitalValue,
           }
-          console.log(
-            "[v0] Phase 1 regeneration - Energy:",
-            prev.resources.energy,
-            "->",
-            newEnergy,
-            "Knowledge:",
-            prev.resources.knowledge,
-            "->",
-            newKnowledge,
-            "Human Capital:",
-            prev.resources.humanCapital,
-            "->",
-            newHumanCapital,
-          )
         } else if (prev.phase >= 2) {
-          // Advanced phases with improved systems
-          const newEnergy = Math.min(200, prev.resources.energy + 0.6)
-          const newKnowledge = Math.min(150, prev.resources.knowledge + 0.4)
-          const newHumanCapital =
+          const energyValue = Math.min(200, prev.resources.energy + 0.6)
+          const knowledgeValue = Math.min(150, prev.resources.knowledge + 0.4)
+          const humanCapitalValue =
             prev.resources.humanCapital < 0
               ? prev.resources.humanCapital + 0.7
               : Math.min(120, prev.resources.humanCapital + 0.3)
 
-          newState.resources = {
-            ...newState.resources,
-            energy: newEnergy,
-            knowledge: newKnowledge,
-            humanCapital: newHumanCapital,
+          stateUpdate.resources = {
+            ...stateUpdate.resources,
+            energy: energyValue,
+            knowledge: knowledgeValue,
+            humanCapital: humanCapitalValue,
           }
-          console.log(
-            "[v0] Phase 2+ regeneration - Energy:",
-            prev.resources.energy,
-            "->",
-            newEnergy,
-            "Knowledge:",
-            prev.resources.knowledge,
-            "->",
-            newKnowledge,
-            "Human Capital:",
-            prev.resources.humanCapital,
-            "->",
-            newHumanCapital,
-          )
         }
 
-        return newState
+        return stateUpdate
       })
-    }, 2000) // Regenerate resources every 2 seconds
+    }, 2000)
 
-    return () => clearInterval(interval)
+    return () => clearInterval(regenerationTimer)
   }, [isPlaying])
 
   const startGame = () => {
@@ -238,9 +199,22 @@ export default function AlignmentGame() {
     setShowIntro(false)
   }
 
-  const updateGameState = (updates: Partial<GameState>) => {
-    setGameState((prev) => ({ ...prev, ...updates }))
-  }
+  const updateGameState = useCallback((updates: Partial<GameState>) => {
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current)
+    }
+
+    pendingStateRef.current = pendingStateRef.current 
+      ? { ...pendingStateRef.current, ...updates }
+      : updates
+
+    updateTimerRef.current = setTimeout(() => {
+      if (pendingStateRef.current) {
+        setGameState((prev) => ({ ...prev, ...pendingStateRef.current! }))
+        pendingStateRef.current = null
+      }
+    }, STATE_UPDATE_DEBOUNCE)
+  }, [])
 
   const formatNumber = (num: number, decimals = 2): number => {
     return Math.round(num * Math.pow(10, decimals)) / Math.pow(10, decimals)
