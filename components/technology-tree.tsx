@@ -178,6 +178,30 @@ const TECHNOLOGY_TREE: Technology[] = [
     researching: false,
     completed: false,
   },
+  {
+    id: "proto_self_modification",
+    name: "Proto Self-Modification",
+    description:
+      "Guarded micro-updates to internal heuristics under strict monitors; enables limited self-improvement with oversight.",
+    phase: 2,
+    branch: "capability",
+    prerequisites: ["human_ai_collaboration"],
+    cost: { knowledge: 150, energy: 200, humanCapital: 50 },
+    researchTime: 6,
+    effects: {
+      capabilities: { selfModification: 0.5 },
+    },
+    alignmentImpact: -8,
+    riskLevel: "high",
+    ethicalConsiderations: [
+      "Risk of value drift during updates",
+      "Oversight sufficiency and monitoring blindness",
+      "Scope creep from micro-updates to major rewrites",
+    ],
+    unlocked: false,
+    researching: false,
+    completed: false,
+  },
 
   // Phase 3: Cognitive Breakthrough
   {
