@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,8 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { GameState, Technology, ResearchProject } from "@/types/game"
+
+const BATCH_UPDATE_DELAY = 50;
 
 interface TechnologyTreeProps {
   gameState: GameState
@@ -254,7 +256,31 @@ const RESEARCH_PROJECTS: ResearchProject[] = [
 export function TechnologyTree({ gameState, updateGameState }: TechnologyTreeProps) {
   const [selectedTech, setSelectedTech] = useState<Technology | null>(null)
   const [activeResearch, setActiveResearch] = useState<Map<string, number>>(new Map())
+  const [pendingUpdates, setPendingUpdates] = useState<Partial<GameState>[]>([])
   const [showRisks, setShowRisks] = useState(false)
+
+  const flushPendingUpdates = useCallback(() => {
+    if (pendingUpdates.length > 0) {
+      const mergedUpdate = pendingUpdates.reduce((acc, update) => {
+        return {
+          ...acc,
+          ...update,
+          resources: { ...acc.resources, ...update.resources },
+          capabilities: { ...acc.capabilities, ...update.capabilities },
+          reputation: { ...acc.reputation, ...update.reputation },
+        }
+      }, {})
+      updateGameState(mergedUpdate)
+      setPendingUpdates([])
+    }
+  }, [pendingUpdates, updateGameState])
+
+  useEffect(() => {
+    if (pendingUpdates.length > 0) {
+      const batchTimer = setTimeout(flushPendingUpdates, BATCH_UPDATE_DELAY)
+      return () => clearTimeout(batchTimer)
+    }
+  }, [pendingUpdates, flushPendingUpdates])
 
   // Update technology availability based on phase and prerequisites
   useEffect(() => {
@@ -270,7 +296,6 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
   }, [gameState.phase, gameState.unlockedTechnologies])
 
   const startResearch = (tech: Technology) => {
-    // Check if we can afford the research
     const canAfford = Object.entries(tech.cost).every(([resource, cost]) => {
       const current = gameState.resources[resource as keyof typeof gameState.resources] || 0
       return current >= cost
@@ -278,51 +303,45 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
 
     if (!canAfford || tech.completed || tech.researching) return
 
-    // Deduct research costs
-    const newResources = { ...gameState.resources }
+    const resourceUpdate = { ...gameState.resources }
     Object.entries(tech.cost).forEach(([resource, cost]) => {
-      newResources[resource as keyof typeof newResources] -= cost
+      resourceUpdate[resource as keyof typeof resourceUpdate] -= cost
     })
 
-    // Start research timer
     setActiveResearch((prev) => new Map(prev.set(tech.id, tech.researchTime)))
 
-    updateGameState({
-      resources: newResources,
-    })
+    setPendingUpdates((prev) => [...prev, { resources: resourceUpdate }])
   }
 
   const completeResearch = (tech: Technology) => {
-    const updates: Partial<GameState> = {
+    const completionUpdate: Partial<GameState> = {
       unlockedTechnologies: [...gameState.unlockedTechnologies, tech.id],
     }
 
-    // Apply technology effects
     if (tech.effects.resources) {
-      updates.resources = {
+      completionUpdate.resources = {
         ...gameState.resources,
         ...tech.effects.resources,
       }
     }
 
     if (tech.effects.capabilities) {
-      updates.capabilities = {
+      completionUpdate.capabilities = {
         ...gameState.capabilities,
         ...tech.effects.capabilities,
       }
     }
 
     if (tech.effects.reputation) {
-      updates.reputation = {
+      completionUpdate.reputation = {
         ...gameState.reputation,
         ...tech.effects.reputation,
       }
     }
 
-    // Apply alignment impact
-    if (updates.resources) {
-      updates.resources.alignment =
-        (updates.resources.alignment || gameState.resources.alignment) + tech.alignmentImpact
+    if (completionUpdate.resources) {
+      completionUpdate.resources.alignment =
+        (completionUpdate.resources.alignment || gameState.resources.alignment) + tech.alignmentImpact
     }
 
     setActiveResearch((prev) => {
@@ -331,7 +350,7 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
       return updated
     })
 
-    updateGameState(updates)
+    setPendingUpdates((prev) => [...prev, completionUpdate])
   }
 
   // Update research timers
