@@ -15,7 +15,7 @@ reviews:
   review_status: true
   commit_status: true
   fail_commit_status: false
-  collapse_walkthrough: true
+  collapse_walkthrough: false
   changed_files_summary: true
   sequence_diagrams: true
   estimate_code_review_effort: true
@@ -32,7 +32,7 @@ reviews:
   path_filters: []
   path_instructions: []
   abort_on_close: true
-  disable_cache: false
+  disable_cache: true
   
   auto_review:
     enabled: true
@@ -158,9 +158,9 @@ chat:
   auto_reply: true
   integrations:
     jira:
-      usage: auto
+      usage: true
     linear:
-      usage: auto
+      usage: true
 
 knowledge_base:
   opt_out: false
