@@ -32,7 +32,7 @@ reviews:
   path_filters: []
   path_instructions: []
   abort_on_close: true
-  disable_cache: true
+  disable_cache: false
   
   auto_review:
     enabled: true
