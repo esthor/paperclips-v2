@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import type { GameState, ResourceOperation, ResourceCrisis } from "@/types/game"
+import { RESOURCE_UPDATE_DELAY, OPERATION_TICK_INTERVAL } from "@/types/game"
 
 interface ResourceManagementProps {
   gameState: GameState
@@ -126,8 +127,12 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     production: 50,
     expansion: 25,
   })
+  const stateRef = useRef(gameState)
 
-  // Check for resource crises
+  useEffect(() => {
+    stateRef.current = gameState
+  }, [gameState])
+
   useEffect(() => {
     if (currentCrisis) return
 
@@ -173,15 +178,15 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
   }
 
   const completeOperation = (operation: ResourceOperation) => {
-    const newResources = { ...gameState.resources }
-    const newCapabilities = { ...gameState.capabilities }
+    const currentState = stateRef.current
+    const updatedResources = { ...currentState.resources }
+    const updatedCapabilities = { ...currentState.capabilities }
 
-    // Apply outputs
     Object.entries(operation.outputs).forEach(([resource, gain]) => {
-      if (resource in newResources) {
-        newResources[resource as keyof typeof newResources] += gain
-      } else if (resource in newCapabilities) {
-        newCapabilities[resource as keyof typeof newCapabilities] += gain
+      if (resource in updatedResources) {
+        updatedResources[resource as keyof typeof updatedResources] += gain
+      } else if (resource in updatedCapabilities) {
+        updatedCapabilities[resource as keyof typeof updatedCapabilities] += gain
       }
     })
 
@@ -192,8 +197,8 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     })
 
     updateGameState({
-      resources: newResources,
-      capabilities: newCapabilities,
+      resources: updatedResources,
+      capabilities: updatedCapabilities,
     })
   }
 
@@ -259,25 +264,24 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
 
   // Update operation timers
   useEffect(() => {
-    const interval = setInterval(() => {
+    const operationInterval = setInterval(() => {
       setActiveOperations((prev) => {
         const updated = new Map()
         prev.forEach((timeLeft, operationId) => {
           if (timeLeft > 1) {
             updated.set(operationId, timeLeft - 1)
           } else {
-            // Complete operation
             const operation = RESOURCE_OPERATIONS.find((op) => op.id === operationId)
             if (operation) {
-              setTimeout(() => completeOperation(operation), 100)
+              setTimeout(() => completeOperation(operation), RESOURCE_UPDATE_DELAY)
             }
           }
         })
         return updated
       })
-    }, 2000) // 2 second intervals
+    }, OPERATION_TICK_INTERVAL)
 
-    return () => clearInterval(interval)
+    return () => clearInterval(operationInterval)
   }, [])
 
   const availableOperations = RESOURCE_OPERATIONS.filter(
