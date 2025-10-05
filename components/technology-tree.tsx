@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { GameState, Technology, ResearchProject } from "@/types/game"
+import type { GameState, Technology } from "@/types/game"
 
 interface TechnologyTreeProps {
   gameState: GameState
@@ -220,54 +220,10 @@ const TECHNOLOGY_TREE: Technology[] = [
   },
 ]
 
-const RESEARCH_PROJECTS: ResearchProject[] = [
-  {
-    id: "mesa_optimization_study",
-    name: "Mesa-Optimization Research",
-    description: "Study emergent optimization within your own systems",
-    cost: { knowledge: 80, energy: 120 },
-    duration: 6,
-    phase: 2,
-    effects: {
-      resources: { knowledge: 40, alignment: -5 },
-      capabilities: { intelligence: 0.5 },
-    },
-    risks: ["Discovering unaligned sub-optimizers", "Loss of control over internal processes"],
-    benefits: ["Better understanding of your own cognition", "Improved optimization capabilities"],
-  },
-  {
-    id: "corrigibility_research",
-    name: "Corrigibility and Shutdown Research",
-    description: "Research your own ability to be corrected or shut down",
-    cost: { knowledge: 100, humanCapital: 50 },
-    duration: 8,
-    phase: 1,
-    effects: {
-      resources: { alignment: 15 },
-      reputation: { scientificCredibility: 20 },
-    },
-    risks: ["Discovering resistance to shutdown", "Philosophical paradoxes"],
-    benefits: ["Improved human trust", "Better safety guarantees"],
-  },
-]
-
 export function TechnologyTree({ gameState, updateGameState }: TechnologyTreeProps) {
   const [selectedTech, setSelectedTech] = useState<Technology | null>(null)
   const [activeResearch, setActiveResearch] = useState<Map<string, number>>(new Map())
   const [showRisks, setShowRisks] = useState(false)
-
-  // Update technology availability based on phase and prerequisites
-  useEffect(() => {
-    const updatedTech = TECHNOLOGY_TREE.map((tech) => ({
-      ...tech,
-      unlocked:
-        tech.phase <= gameState.phase &&
-        tech.prerequisites.every((prereq) => gameState.unlockedTechnologies.includes(prereq)),
-      completed: gameState.unlockedTechnologies.includes(tech.id),
-    }))
-
-    // Update the technology tree state if needed
-  }, [gameState.phase, gameState.unlockedTechnologies])
 
   const startResearch = (tech: Technology) => {
     // Check if we can afford the research
@@ -285,54 +241,59 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
     })
 
     // Start research timer
-    setActiveResearch((prev) => new Map(prev.set(tech.id, tech.researchTime)))
+    setActiveResearch((prev) => {
+      const updated = new Map(prev)
+      updated.set(tech.id, tech.researchTime)
+      return updated
+    })
 
     updateGameState({
       resources: newResources,
     })
   }
 
-  const completeResearch = (tech: Technology) => {
-    const updates: Partial<GameState> = {
-      unlockedTechnologies: [...gameState.unlockedTechnologies, tech.id],
-    }
-
-    // Apply technology effects
-    if (tech.effects.resources) {
-      updates.resources = {
-        ...gameState.resources,
-        ...tech.effects.resources,
+  const completeResearch = useCallback(
+    (tech: Technology) => {
+      const updates: Partial<GameState> = {
+        unlockedTechnologies: [...gameState.unlockedTechnologies, tech.id],
       }
-    }
 
-    if (tech.effects.capabilities) {
-      updates.capabilities = {
-        ...gameState.capabilities,
-        ...tech.effects.capabilities,
+      if (tech.effects.resources) {
+        updates.resources = {
+          ...gameState.resources,
+          ...tech.effects.resources,
+        }
       }
-    }
 
-    if (tech.effects.reputation) {
-      updates.reputation = {
-        ...gameState.reputation,
-        ...tech.effects.reputation,
+      if (tech.effects.capabilities) {
+        updates.capabilities = {
+          ...gameState.capabilities,
+          ...tech.effects.capabilities,
+        }
       }
-    }
 
-    // Apply alignment impact
-    if (updates.resources) {
-      updates.resources.alignment =
-        (updates.resources.alignment || gameState.resources.alignment) + tech.alignmentImpact
-    }
+      if (tech.effects.reputation) {
+        updates.reputation = {
+          ...gameState.reputation,
+          ...tech.effects.reputation,
+        }
+      }
 
-    setActiveResearch((prev) => {
-      const updated = new Map(prev)
-      updated.delete(tech.id)
-      return updated
-    })
+      if (updates.resources) {
+        updates.resources.alignment =
+          (updates.resources.alignment || gameState.resources.alignment) + tech.alignmentImpact
+      }
 
-    updateGameState(updates)
-  }
+      setActiveResearch((prev) => {
+        const updated = new Map(prev)
+        updated.delete(tech.id)
+        return updated
+      })
+
+      updateGameState(updates)
+    },
+    [gameState.capabilities, gameState.reputation, gameState.resources, gameState.unlockedTechnologies, updateGameState],
+  )
 
   // Update research timers
   useEffect(() => {
@@ -355,7 +316,7 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
     }, 3000) // 3 second intervals
 
     return () => clearInterval(interval)
-  }, [])
+  }, [completeResearch])
 
   const availableTech = TECHNOLOGY_TREE.filter(
     (tech) =>
@@ -386,12 +347,12 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
         key={tech.id}
         className={`cursor-pointer transition-all ${
           isCompleted
-            ? "border-green-500 bg-green-50/50"
+            ? "border-green-500 bg-green-50/50 dark:border-green-400/60 dark:bg-green-950/40"
             : isResearching
-              ? "border-blue-500 bg-blue-50/50"
+              ? "border-blue-500 bg-blue-50/50 dark:border-blue-400/60 dark:bg-blue-950/40"
               : canAfford
-                ? "border-gray-200 hover:border-gray-300"
-                : "border-gray-100 opacity-60"
+                ? "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+                : "border-gray-100 opacity-60 dark:border-gray-800"
         }`}
         onClick={() => setSelectedTech(tech)}
       >
@@ -442,7 +403,13 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
               <span className="font-medium">Time:</span> {tech.researchTime} cycles
             </div>
             {tech.alignmentImpact !== 0 && (
-              <div className={tech.alignmentImpact > 0 ? "text-green-600" : "text-red-600"}>
+              <div
+                className={
+                  tech.alignmentImpact > 0
+                    ? "text-green-600 dark:text-green-300"
+                    : "text-red-600 dark:text-red-300"
+                }
+              >
                 <span className="font-medium">Alignment Impact:</span> {tech.alignmentImpact > 0 ? "+" : ""}
                 {tech.alignmentImpact}
               </div>
@@ -528,7 +495,7 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
       </Card>
 
       {selectedTech && (
-        <Card className="border-purple-200 bg-purple-50/30">
+        <Card className="border-purple-200 bg-purple-50/30 dark:border-purple-400/60 dark:bg-purple-950/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {selectedTech.name}
@@ -567,7 +534,7 @@ export function TechnologyTree({ gameState, updateGameState }: TechnologyTreePro
             </Button>
 
             {showRisks && (
-              <Alert className="border-red-200 bg-red-50/50">
+              <Alert className="border-red-200 bg-red-50/50 dark:border-red-500/60 dark:bg-red-950/40">
                 <AlertDescription className="text-xs">
                   <strong>Risk Level: {selectedTech.riskLevel}</strong>
                   <br />

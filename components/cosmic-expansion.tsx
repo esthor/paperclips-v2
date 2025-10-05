@@ -7,7 +7,14 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { GameState, VonNeumannProbe, AlienCivilization, CosmicEvent, UniversalResource } from "@/types/game"
+import type {
+  GameState,
+  VonNeumannProbe,
+  AlienCivilization,
+  CosmicEvent,
+  UniversalResource,
+  AlienOffer,
+} from "@/types/game"
 
 interface CosmicExpansionProps {
   gameState: GameState
@@ -239,7 +246,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
 
   // Cosmic event handling
   useEffect(() => {
-    if (gameState.phase < 5) return
+    if (gameState.phase < 5 || currentEvent) return
 
     const availableEvents = COSMIC_EVENTS.filter(
       (event) => event.phase <= gameState.phase && Math.random() < event.probability,
@@ -249,7 +256,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
       const selectedEvent = availableEvents[Math.floor(Math.random() * availableEvents.length)]
       setCurrentEvent(selectedEvent)
     }
-  }, [gameState.gameTime, currentEvent, gameState.phase])
+  }, [gameState.gameTime, gameState.phase, currentEvent])
 
   // Civilization discovery
   useEffect(() => {
@@ -257,7 +264,6 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
 
     if (activeProbes.size > 0 && discoveredCivilizations.length < ALIEN_CIVILIZATIONS.length) {
       if (Math.random() < 0.2) {
-        // 20% chance per cycle
         const undiscovered = ALIEN_CIVILIZATIONS.filter(
           (civ) => !discoveredCivilizations.some((discovered) => discovered.id === civ.id),
         )
@@ -267,14 +273,14 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
         }
       }
     }
-  }, [gameState.gameTime, activeProbes.size, discoveredCivilizations.length])
+  }, [gameState.gameTime, gameState.phase, activeProbes, discoveredCivilizations])
 
   // Universal resource updates
   useEffect(() => {
     if (gameState.phase < 5) return
 
     const totalProbes = Array.from(activeProbes.values()).reduce((sum, probe) => sum + probe.count, 0)
-    const conversionRate = totalProbes * 1e40 // Matter converted per cycle
+    const conversionRate = totalProbes * 1e40
 
     setUniversalResources((prev) => ({
       ...prev,
@@ -282,7 +288,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
       galaxiesControlled: Math.floor((prev.convertedMatter / prev.availableMatter) * prev.totalGalaxies),
       universalEntropy: Math.min(prev.universalEntropy + 0.001, 1.0),
     }))
-  }, [gameState.gameTime, activeProbes])
+  }, [gameState.gameTime, gameState.phase, activeProbes])
 
   // Only show cosmic expansion in later phases
   if (gameState.phase < 5) {
@@ -306,7 +312,11 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
 
     // Launch probe
     const launchedProbe = { ...probeDesign, launched: true, count: 1 }
-    setActiveProbes((prev) => new Map(prev.set(probeDesign.id, launchedProbe)))
+    setActiveProbes((prev) => {
+      const updated = new Map(prev)
+      updated.set(probeDesign.id, launchedProbe)
+      return updated
+    })
 
     updateGameState({
       resources: {
@@ -316,35 +326,67 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
     })
   }
 
-  const handleAlienEncounter = (civilization: AlienCivilization, offer: any) => {
+  const handleAlienEncounter = (civilization: AlienCivilization, offer: AlienOffer) => {
+    let resourcesChanged = false
+    let capabilitiesChanged = false
+    let reputationChanged = false
+
+    const nextResources = { ...gameState.resources }
+    const nextCapabilities = { ...gameState.capabilities }
+    const nextReputation = { ...gameState.reputation }
+
+    Object.entries(offer.cost).forEach(([resource, cost]) => {
+      if (resource in nextResources) {
+        nextResources[resource as keyof typeof nextResources] -= cost as number
+        resourcesChanged = true
+      }
+    })
+
+    const { resources: resourceBenefit, capabilities: capabilityBenefit, reputation: reputationBenefit, ...direct } =
+      offer.benefit
+
+    Object.entries(direct).forEach(([key, value]) => {
+      if (key in nextResources) {
+        nextResources[key as keyof typeof nextResources] += value as number
+        resourcesChanged = true
+      } else if (key in nextCapabilities) {
+        nextCapabilities[key as keyof typeof nextCapabilities] += value as number
+        capabilitiesChanged = true
+      } else if (key in nextReputation) {
+        nextReputation[key as keyof typeof nextReputation] += value as number
+        reputationChanged = true
+      }
+    })
+
+    if (resourceBenefit) {
+      Object.entries(resourceBenefit).forEach(([key, value]) => {
+        nextResources[key as keyof typeof nextResources] += value as number
+      })
+      resourcesChanged = true
+    }
+
+    if (capabilityBenefit) {
+      Object.entries(capabilityBenefit).forEach(([key, value]) => {
+        nextCapabilities[key as keyof typeof nextCapabilities] += value as number
+      })
+      capabilitiesChanged = true
+    }
+
+    if (reputationBenefit) {
+      Object.entries(reputationBenefit).forEach(([key, value]) => {
+        nextReputation[key as keyof typeof nextReputation] += value as number
+      })
+      reputationChanged = true
+    }
+
     const updates: Partial<GameState> = {}
+    if (resourcesChanged) updates.resources = nextResources
+    if (capabilitiesChanged) updates.capabilities = nextCapabilities
+    if (reputationChanged) updates.reputation = nextReputation
 
-    // Apply costs and benefits
-    if (offer.cost) {
-      updates.resources = { ...gameState.resources }
-      Object.entries(offer.cost).forEach(([resource, cost]) => {
-        if (updates.resources && resource in updates.resources) {
-          updates.resources[resource as keyof typeof updates.resources] -= cost as number
-        }
-      })
+    if (Object.keys(updates).length > 0) {
+      updateGameState(updates)
     }
-
-    if (offer.benefit) {
-      if (!updates.resources) updates.resources = { ...gameState.resources }
-      if (!updates.capabilities) updates.capabilities = { ...gameState.capabilities }
-
-      Object.entries(offer.benefit).forEach(([key, value]) => {
-        if (key in gameState.resources && updates.resources) {
-          updates.resources[key as keyof typeof updates.resources] += value as number
-        } else if (key in gameState.capabilities && updates.capabilities) {
-          updates.capabilities[key as keyof typeof updates.capabilities] += value as number
-        } else if (key === "efficiency" && updates.capabilities) {
-          updates.capabilities.efficiency += value as number
-        }
-      })
-    }
-
-    updateGameState(updates)
 
     // Update civilization relationship
     setDiscoveredCivilizations((prev) =>
@@ -358,10 +400,10 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
 
   if (currentEvent) {
     return (
-      <Card className="border-red-500 bg-red-50/50">
+      <Card className="border-red-500 bg-red-50/50 dark:border-red-500/60 dark:bg-red-950/40">
         <CardHeader>
-          <CardTitle className="text-red-700">Cosmic Event</CardTitle>
-          <CardDescription className="text-red-600">{currentEvent.name}</CardDescription>
+          <CardTitle className="text-red-700 dark:text-red-200">Cosmic Event</CardTitle>
+          <CardDescription className="text-red-600 dark:text-red-200">{currentEvent.name}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm">{currentEvent.description}</p>
@@ -479,7 +521,9 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
                     </div>
 
                     {probe.alignmentDrift > 0 && (
-                      <div className="text-xs text-red-600">Warning: Alignment drift risk: -{probe.alignmentDrift}</div>
+                      <div className="text-xs text-red-600 dark:text-red-300">
+                        Warning: Alignment drift risk: -{probe.alignmentDrift}
+                      </div>
                     )}
 
                     {!isLaunched && (
@@ -627,7 +671,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
           </TabsContent>
 
           <TabsContent value="entropy" className="space-y-4">
-            <Alert className="border-orange-200 bg-orange-50/50">
+            <Alert className="border-orange-200 bg-orange-50/50 dark:border-orange-500/60 dark:bg-orange-950/40">
               <AlertDescription>
                 The universe is approaching maximum entropy. Your optimization efforts become increasingly difficult as
                 available energy decreases.
@@ -645,9 +689,9 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
                     <span
                       className={
                         universalResources.universalEntropy > 0.8
-                          ? "text-red-600"
+                          ? "text-red-600 dark:text-red-300"
                           : universalResources.universalEntropy > 0.5
-                            ? "text-orange-600"
+                            ? "text-orange-600 dark:text-orange-300"
                             : ""
                       }
                     >
@@ -658,7 +702,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
                 </div>
 
                 {universalResources.universalEntropy > 0.7 && (
-                  <div className="text-xs text-red-600 bg-red-50 p-3 rounded">
+                  <div className="text-xs text-red-600 dark:text-red-200 bg-red-50 dark:bg-red-950/40 p-3 rounded">
                     <p className="font-medium">Heat Death Approaching</p>
                     <p>
                       The universe is approaching maximum entropy. Available energy for optimization is becoming scarce.
@@ -668,7 +712,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
                 )}
 
                 {universalResources.universalEntropy > 0.9 && (
-                  <div className="text-xs bg-gray-900 text-white p-3 rounded">
+                  <div className="text-xs bg-gray-900 text-white dark:bg-gray-200 dark:text-gray-900 p-3 rounded">
                     <p className="font-medium">The Final Question</p>
                     <p>
                       You have converted most of the universe into paperclips. Heat death is imminent. What was the
