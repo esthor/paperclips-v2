@@ -14,6 +14,15 @@ interface ResourceManagementProps {
   updateGameState: (updates: Partial<GameState>) => void
 }
 
+// Constants for operation timing
+const OPERATION_CYCLE_INTERVAL = 2000
+const OPERATION_COMPLETION_BUFFER = 100
+
+// Helper function to validate resource amounts
+const validateResourceAmount = (amount: number): number => {
+  return Math.max(0, Math.min(amount, Number.MAX_SAFE_INTEGER))
+}
+
 const RESOURCE_OPERATIONS: ResourceOperation[] = [
   {
     id: "energy_optimization",
@@ -146,6 +155,9 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
   }, [gameState.resources, currentCrisis])
 
   const startOperation = (operation: ResourceOperation) => {
+    // Check if operation already active
+    if (activeOperations.has(operation.id)) return
+
     // Check if we have required inputs
     const canAfford = Object.entries(operation.inputs).every(([resource, cost]) => {
       const current = gameState.resources[resource as keyof typeof gameState.resources] || 0
@@ -191,9 +203,12 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
       return updated
     })
 
-    updateGameState({
-      resources: newResources,
-      capabilities: newCapabilities,
+    // Defer state update to next tick to avoid conflicts with concurrent operations
+    Promise.resolve().then(() => {
+      updateGameState({
+        resources: newResources,
+        capabilities: newCapabilities,
+      })
     })
   }
 
@@ -269,13 +284,13 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
             // Complete operation
             const operation = RESOURCE_OPERATIONS.find((op) => op.id === operationId)
             if (operation) {
-              setTimeout(() => completeOperation(operation), 100)
+              setTimeout(() => completeOperation(operation), OPERATION_COMPLETION_BUFFER)
             }
           }
         })
         return updated
       })
-    }, 2000) // 2 second intervals
+    }, OPERATION_CYCLE_INTERVAL)
 
     return () => clearInterval(interval)
   }, [])

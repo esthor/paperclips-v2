@@ -13,6 +13,20 @@ interface DecisionEngineProps {
   updateGameState: (updates: Partial<GameState>) => void
 }
 
+// Constants for decision timing
+const LONG_TERM_CONSEQUENCE_DELAY = 10000
+
+// Helper function to calculate moral uncertainty
+const calculateMoralUncertainty = (
+  currentLevel: number,
+  decisionUncertainty: number | undefined,
+  currentConfidence: number
+): { level: number; confidence: number } => {
+  const newLevel = Math.min(1.0, currentLevel + (decisionUncertainty || 0) * 0.1)
+  const newConfidence = Math.max(0.1, currentConfidence - 0.05)
+  return { level: newLevel, confidence: newConfidence }
+}
+
 const PHASE_DECISIONS: Record<number, Decision[]> = {
   0: [
     {
@@ -309,26 +323,29 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
     PHASE_DECISIONS[gameState.phase]?.filter((decision) => !gameState.completedDecisions.includes(decision.id)) || []
 
   const handleChoice = (decision: Decision, choice: any) => {
+    // Prevent processing if decision already completed
+    if (gameState.completedDecisions.includes(decision.id)) return
+
     const updates: Partial<GameState> = {
       completedDecisions: [...gameState.completedDecisions, decision.id],
     }
 
     // Apply immediate effects
-    if (choice.effects.resources) {
+    if (choice.effects?.resources) {
       updates.resources = {
         ...gameState.resources,
         ...choice.effects.resources,
       }
     }
 
-    if (choice.effects.capabilities) {
+    if (choice.effects?.capabilities) {
       updates.capabilities = {
         ...gameState.capabilities,
         ...choice.effects.capabilities,
       }
     }
 
-    if (choice.effects.reputation) {
+    if (choice.effects?.reputation) {
       updates.reputation = {
         ...gameState.reputation,
         ...choice.effects.reputation,
@@ -336,11 +353,15 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
     }
 
     // Update moral uncertainty based on decision
-    const newUncertainty = Math.min(1.0, moralUncertainty.level + (decision.moralUncertainty || 0) * 0.1)
+    const uncertaintyUpdate = calculateMoralUncertainty(
+      moralUncertainty.level,
+      decision.moralUncertainty,
+      moralUncertainty.confidence
+    )
     setMoralUncertainty((prev) => ({
       ...prev,
-      level: newUncertainty,
-      confidence: Math.max(0.1, prev.confidence - 0.05),
+      level: uncertaintyUpdate.level,
+      confidence: uncertaintyUpdate.confidence,
     }))
 
     // Schedule long-term consequences
@@ -348,11 +369,14 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
       setTimeout(() => {
         console.log("[v0] Long-term consequences triggered:", decision.longTermConsequences)
         // Apply delayed effects based on consequences
-      }, 10000) // 10 second delay for demonstration
+      }, LONG_TERM_CONSEQUENCE_DELAY)
     }
 
-    updateGameState(updates)
-    setCurrentDecision(null)
+    // Ensure UI cleanup happens after state updates propagate
+    requestAnimationFrame(() => {
+      updateGameState(updates)
+      setCurrentDecision(null)
+    })
   }
 
   const renderEthicalAnalysis = (decision: Decision) => {
