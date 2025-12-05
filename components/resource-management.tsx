@@ -164,7 +164,6 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     setActiveOperations((prev) => new Map(prev.set(operation.id, operation.duration)))
 
     updateGameState({
-      resources: newResources,
       resources: {
         ...newResources,
         alignment: newResources.alignment - operation.ethicalCost,
