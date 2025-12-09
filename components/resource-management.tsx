@@ -18,11 +18,6 @@ interface ResourceManagementProps {
 const OPERATION_CYCLE_INTERVAL = 2000
 const OPERATION_COMPLETION_BUFFER = 100
 
-// Helper function to validate resource amounts
-const validateResourceAmount = (amount: number): number => {
-  return Math.max(0, Math.min(amount, Number.MAX_SAFE_INTEGER))
-}
-
 const RESOURCE_OPERATIONS: ResourceOperation[] = [
   {
     id: "energy_optimization",
@@ -203,12 +198,13 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
       return updated
     })
 
-    // Defer state update to next tick to avoid conflicts with concurrent operations
-    Promise.resolve().then(() => {
-      updateGameState({
-        resources: newResources,
-        capabilities: newCapabilities,
-      })
+    // Apply state update directly - the Promise.resolve().then() pattern doesn't
+    // actually prevent race conditions since each call still reads stale state.
+    // For true atomic updates, the parent component would need to support
+    // functional state updates.
+    updateGameState({
+      resources: newResources,
+      capabilities: newCapabilities,
     })
   }
 

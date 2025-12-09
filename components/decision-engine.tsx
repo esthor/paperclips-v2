@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -318,13 +318,17 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
     confidence: 0.3,
   })
   const [showEthicalAnalysis, setShowEthicalAnalysis] = useState(false)
+  const [processingDecisions, setProcessingDecisions] = useState<Set<string>>(new Set())
 
   const availableDecisions =
     PHASE_DECISIONS[gameState.phase]?.filter((decision) => !gameState.completedDecisions.includes(decision.id)) || []
 
   const handleChoice = (decision: Decision, choice: any) => {
-    // Prevent processing if decision already completed
-    if (gameState.completedDecisions.includes(decision.id)) return
+    // Prevent processing if decision already completed or currently being processed
+    if (gameState.completedDecisions.includes(decision.id) || processingDecisions.has(decision.id)) return
+
+    // Immediately mark decision as being processed to prevent duplicate handling
+    setProcessingDecisions(prev => new Set(prev).add(decision.id))
 
     const updates: Partial<GameState> = {
       completedDecisions: [...gameState.completedDecisions, decision.id],
@@ -376,6 +380,12 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
     requestAnimationFrame(() => {
       updateGameState(updates)
       setCurrentDecision(null)
+      // Remove decision from processing set after update completes
+      setProcessingDecisions(prev => {
+        const next = new Set(prev)
+        next.delete(decision.id)
+        return next
+      })
     })
   }
 
