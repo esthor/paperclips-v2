@@ -1,3 +1,6 @@
+export const RESOURCE_UPDATE_DELAY = 100;
+export const OPERATION_TICK_INTERVAL = 2000;
+
 export interface GameState {
   phase: number
   resources: Resources
