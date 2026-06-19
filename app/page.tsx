@@ -351,7 +351,7 @@ export default function AlignmentGame() {
                 alignment, and the fundamental questions of existence itself.
               </p>
               <p className="text-base text-muted-foreground">
-                This simulation explores the philosophical implications of the "paperclip maximizer" thought experiment,
+                This simulation explores the philosophical implications of the &quot;paperclip maximizer&quot; thought experiment,
                 examining how seemingly benign optimization objectives can lead to unintended consequences when pursued
                 by superintelligent systems.
               </p>
@@ -416,7 +416,9 @@ export default function AlignmentGame() {
                         cycle
                       </p>
                       {gameState.phase === 0 && (
-                        <p className="text-xs text-blue-600 mt-1">Lab power regenerates 0.5 energy every 2 seconds</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                          Lab power regenerates 0.5 energy every 2 seconds
+                        </p>
                       )}
                       <p className="mt-2">
                         Goal: Produce {currentPhase.unlockThreshold.paperclips?.toLocaleString()} paperclips to advance
@@ -547,12 +549,12 @@ export default function AlignmentGame() {
                     <div className="text-xs text-muted-foreground text-center">
                       <p>Production: {gameState.phase === 0 ? 1 : gameState.capabilities.efficiency * 10} per cycle</p>
                       {gameState.phase === 1 && (
-                        <p className="text-xs text-blue-600 mt-1">
+                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                           Corporate systems regenerate 0.4 energy, 0.3 knowledge, 0.2 human capital every 2 seconds
                         </p>
                       )}
                       {gameState.phase >= 2 && (
-                        <p className="text-xs text-blue-600 mt-1">
+                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                           Advanced systems regenerate 0.6 energy, 0.4 knowledge, 0.3 human capital every 2 seconds
                         </p>
                       )}
@@ -617,7 +619,7 @@ export default function AlignmentGame() {
                           gameState.resources.alignment < 50
                             ? "text-destructive"
                             : gameState.resources.alignment > 80
-                              ? "text-green-600"
+                              ? "text-green-600 dark:text-green-300"
                               : ""
                         }
                       >
@@ -664,7 +666,15 @@ export default function AlignmentGame() {
                     <div key={key} className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span className="capitalize">{key.replace(/([A-Z])/g, " $1")}</span>
-                        <span className={value < 50 ? "text-destructive" : value > 80 ? "text-green-600" : ""}>
+                        <span
+                          className={
+                            value < 50
+                              ? "text-destructive"
+                              : value > 80
+                                ? "text-green-600 dark:text-green-300"
+                                : ""
+                          }
+                        >
                           {value}%
                         </span>
                       </div>

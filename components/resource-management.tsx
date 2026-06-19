@@ -1,13 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
-import type { GameState, ResourceOperation, ResourceCrisis } from "@/types/game"
+import type {
+  GameState,
+  ResourceOperation,
+  ResourceCrisis,
+  CrisisSolution,
+} from "@/types/game"
 
 interface ResourceManagementProps {
   gameState: GameState
@@ -143,7 +148,7 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     if (triggeredCrisis) {
       setCurrentCrisis(triggeredCrisis)
     }
-  }, [gameState.resources, currentCrisis])
+  }, [gameState, currentCrisis])
 
   const startOperation = (operation: ResourceOperation) => {
     // Check if we have required inputs
@@ -161,10 +166,13 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     })
 
     // Start operation timer
-    setActiveOperations((prev) => new Map(prev.set(operation.id, operation.duration)))
+    setActiveOperations((prev) => {
+      const updated = new Map(prev)
+      updated.set(operation.id, operation.duration)
+      return updated
+    })
 
     updateGameState({
-      resources: newResources,
       resources: {
         ...newResources,
         alignment: newResources.alignment - operation.ethicalCost,
@@ -172,34 +180,37 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     })
   }
 
-  const completeOperation = (operation: ResourceOperation) => {
-    const newResources = { ...gameState.resources }
-    const newCapabilities = { ...gameState.capabilities }
+  const completeOperation = useCallback(
+    (operation: ResourceOperation) => {
+      const newResources = { ...gameState.resources }
+      const newCapabilities = { ...gameState.capabilities }
 
-    // Apply outputs
-    Object.entries(operation.outputs).forEach(([resource, gain]) => {
-      if (resource in newResources) {
-        newResources[resource as keyof typeof newResources] += gain
-      } else if (resource in newCapabilities) {
-        newCapabilities[resource as keyof typeof newCapabilities] += gain
-      }
-    })
+      Object.entries(operation.outputs).forEach(([resource, gain]) => {
+        if (resource in newResources) {
+          newResources[resource as keyof typeof newResources] += gain
+        } else if (resource in newCapabilities) {
+          newCapabilities[resource as keyof typeof newCapabilities] += gain
+        }
+      })
 
-    setActiveOperations((prev) => {
-      const updated = new Map(prev)
-      updated.delete(operation.id)
-      return updated
-    })
+      setActiveOperations((prev) => {
+        const updated = new Map(prev)
+        updated.delete(operation.id)
+        return updated
+      })
 
-    updateGameState({
-      resources: newResources,
-      capabilities: newCapabilities,
-    })
-  }
+      updateGameState({
+        resources: newResources,
+        capabilities: newCapabilities,
+      })
+    },
+    [gameState.capabilities, gameState.resources, updateGameState],
+  )
 
-  const handleCrisisSolution = (crisis: ResourceCrisis, solution: any) => {
+  const handleCrisisSolution = (crisis: ResourceCrisis, solution: CrisisSolution) => {
     const newResources = { ...gameState.resources }
     const newReputation = { ...gameState.reputation }
+    const newCapabilities = { ...gameState.capabilities }
 
     // Apply costs
     Object.entries(solution.cost).forEach(([resource, cost]) => {
@@ -209,15 +220,23 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     })
 
     // Apply effects
-    Object.entries(solution.effect).forEach(([key, value]) => {
-      if (key === "reputation" && typeof value === "object") {
-        Object.entries(value).forEach(([repKey, repValue]) => {
-          newReputation[repKey as keyof typeof newReputation] += repValue
-        })
-      } else if (key in newResources) {
-        newResources[key as keyof typeof newResources] += value as number
-      }
+    const { reputation, capabilities, ...resourceEffects } = solution.effect
+
+    Object.entries(resourceEffects).forEach(([resource, change]) => {
+      newResources[resource as keyof typeof newResources] += change as number
     })
+
+    if (reputation) {
+      Object.entries(reputation).forEach(([repKey, repValue]) => {
+        newReputation[repKey as keyof typeof newReputation] += repValue as number
+      })
+    }
+
+    if (capabilities) {
+      Object.entries(capabilities).forEach(([capKey, capValue]) => {
+        newCapabilities[capKey as keyof typeof newCapabilities] += capValue as number
+      })
+    }
 
     updateGameState({
       resources: {
@@ -225,6 +244,7 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
         alignment: newResources.alignment + solution.alignmentImpact,
       },
       reputation: newReputation,
+      capabilities: newCapabilities,
     })
 
     setCurrentCrisis(null)
@@ -261,12 +281,11 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveOperations((prev) => {
-        const updated = new Map()
+        const updated = new Map<string, number>()
         prev.forEach((timeLeft, operationId) => {
           if (timeLeft > 1) {
             updated.set(operationId, timeLeft - 1)
           } else {
-            // Complete operation
             const operation = RESOURCE_OPERATIONS.find((op) => op.id === operationId)
             if (operation) {
               setTimeout(() => completeOperation(operation), 100)
@@ -275,10 +294,10 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
         })
         return updated
       })
-    }, 2000) // 2 second intervals
+    }, 2000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [completeOperation])
 
   const availableOperations = RESOURCE_OPERATIONS.filter(
     (op) => op.phase <= gameState.phase && !activeOperations.has(op.id),
@@ -286,10 +305,12 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
 
   if (currentCrisis) {
     return (
-      <Card className="border-red-500 bg-red-50/50">
+      <Card className="border-red-500 bg-red-50/50 dark:border-red-500/60 dark:bg-red-950/40">
         <CardHeader>
-          <CardTitle className="text-red-700">Resource Crisis</CardTitle>
-          <CardDescription className="text-red-600">{currentCrisis.name}</CardDescription>
+          <CardTitle className="text-red-700 dark:text-red-200">Resource Crisis</CardTitle>
+          <CardDescription className="text-red-600 dark:text-red-200">
+            {currentCrisis.name}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm">{currentCrisis.description}</p>
@@ -396,7 +417,9 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
                       <div className="text-xs text-muted-foreground">
                         Duration: {operation.duration} cycles
                         {operation.ethicalCost > 0 && (
-                          <span className="text-red-600 ml-2">Alignment cost: -{operation.ethicalCost}</span>
+                          <span className="text-red-600 dark:text-red-300 ml-2">
+                            Alignment cost: -{operation.ethicalCost}
+                          </span>
                         )}
                       </div>
                       <Button size="sm" onClick={() => startOperation(operation)} disabled={!canAfford}>
@@ -488,7 +511,14 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium">Total Allocation:</span>
                     <span
-                      className={`text-sm ${allocationSliders.research + allocationSliders.production + allocationSliders.expansion === 100 ? "text-green-600" : "text-red-600"}`}
+                      className={`text-sm ${
+                        allocationSliders.research +
+                          allocationSliders.production +
+                          allocationSliders.expansion ===
+                        100
+                          ? "text-green-600 dark:text-green-300"
+                          : "text-red-600 dark:text-red-300"
+                      }`}
                     >
                       {allocationSliders.research + allocationSliders.production + allocationSliders.expansion}%
                     </span>
