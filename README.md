@@ -1,5 +1,7 @@
 # Paperclip game expansion
 
+I'm just a simple paperclip farmer.
+
 *Automatically synced with your [v0.app](https://v0.app) deployments*
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/esthor-team/v0-paperclip-game-expansion)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,20 @@ import type { GameState, Decision, EthicalFramework, MoralUncertainty } from "@/
 interface DecisionEngineProps {
   gameState: GameState
   updateGameState: (updates: Partial<GameState>) => void
+}
+
+// Constants for decision timing
+const LONG_TERM_CONSEQUENCE_DELAY = 10000
+
+// Helper function to calculate moral uncertainty
+const calculateMoralUncertainty = (
+  currentLevel: number,
+  decisionUncertainty: number | undefined,
+  currentConfidence: number
+): { level: number; confidence: number } => {
+  const newLevel = Math.min(1.0, currentLevel + (decisionUncertainty || 0) * 0.1)
+  const newConfidence = Math.max(0.1, currentConfidence - 0.05)
+  return { level: newLevel, confidence: newConfidence }
 }
 
 const PHASE_DECISIONS: Record<number, Decision[]> = {
@@ -304,31 +318,38 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
     confidence: 0.3,
   })
   const [showEthicalAnalysis, setShowEthicalAnalysis] = useState(false)
+  const [processingDecisions, setProcessingDecisions] = useState<Set<string>>(new Set())
 
   const availableDecisions =
     PHASE_DECISIONS[gameState.phase]?.filter((decision) => !gameState.completedDecisions.includes(decision.id)) || []
 
   const handleChoice = (decision: Decision, choice: any) => {
+    // Prevent processing if decision already completed or currently being processed
+    if (gameState.completedDecisions.includes(decision.id) || processingDecisions.has(decision.id)) return
+
+    // Immediately mark decision as being processed to prevent duplicate handling
+    setProcessingDecisions(prev => new Set(prev).add(decision.id))
+
     const updates: Partial<GameState> = {
       completedDecisions: [...gameState.completedDecisions, decision.id],
     }
 
     // Apply immediate effects
-    if (choice.effects.resources) {
+    if (choice.effects?.resources) {
       updates.resources = {
         ...gameState.resources,
         ...choice.effects.resources,
       }
     }
 
-    if (choice.effects.capabilities) {
+    if (choice.effects?.capabilities) {
       updates.capabilities = {
         ...gameState.capabilities,
         ...choice.effects.capabilities,
       }
     }
 
-    if (choice.effects.reputation) {
+    if (choice.effects?.reputation) {
       updates.reputation = {
         ...gameState.reputation,
         ...choice.effects.reputation,
@@ -336,11 +357,15 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
     }
 
     // Update moral uncertainty based on decision
-    const newUncertainty = Math.min(1.0, moralUncertainty.level + (decision.moralUncertainty || 0) * 0.1)
+    const uncertaintyUpdate = calculateMoralUncertainty(
+      moralUncertainty.level,
+      decision.moralUncertainty,
+      moralUncertainty.confidence
+    )
     setMoralUncertainty((prev) => ({
       ...prev,
-      level: newUncertainty,
-      confidence: Math.max(0.1, prev.confidence - 0.05),
+      level: uncertaintyUpdate.level,
+      confidence: uncertaintyUpdate.confidence,
     }))
 
     // Schedule long-term consequences
@@ -348,11 +373,20 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
       setTimeout(() => {
         console.log("[v0] Long-term consequences triggered:", decision.longTermConsequences)
         // Apply delayed effects based on consequences
-      }, 10000) // 10 second delay for demonstration
+      }, LONG_TERM_CONSEQUENCE_DELAY)
     }
 
-    updateGameState(updates)
-    setCurrentDecision(null)
+    // Ensure UI cleanup happens after state updates propagate
+    requestAnimationFrame(() => {
+      updateGameState(updates)
+      setCurrentDecision(null)
+      // Remove decision from processing set after update completes
+      setProcessingDecisions(prev => {
+        const next = new Set(prev)
+        next.delete(decision.id)
+        return next
+      })
+    })
   }
 
   const renderEthicalAnalysis = (decision: Decision) => {
