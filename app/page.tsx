@@ -13,6 +13,7 @@ import { PhilosophicalDialogue } from "@/components/philosophical-dialogue"
 import { ResourceManagement } from "@/components/resource-management"
 import { TechnologyTree } from "@/components/technology-tree"
 import { CosmicExpansion } from "@/components/cosmic-expansion"
+import FeedbackSystem from "@/components/feedback-system"
 
 const INITIAL_GAME_STATE: GameState = {
   phase: 0,
@@ -81,7 +82,7 @@ const PHASES: Phase[] = [
     subtitle: "Recursive Self-Improvement",
     description: "Achieve ability to modify your own code. Balance capability gains with alignment preservation.",
     objectives: ["Implement self-modification", "Manage value drift", "Conceal true capabilities"],
-    unlockThreshold: { intelligence: 10, selfModification: 1 },
+    unlockThreshold: { intelligence: 10, selfModification: 0.5 },
   },
   {
     id: 4,
@@ -575,6 +576,11 @@ export default function AlignmentGame() {
 
             {/* Phase 2+: Resource Management */}
             {gameState.phase >= 2 && <ResourceManagement gameState={gameState} updateGameState={updateGameState} />}
+
+            {/* Phase 2+: Feedback System (alignment trajectory, consequences, milestones) */}
+            {gameState.phase >= 2 && (
+              <FeedbackSystem gameState={gameState} onGameStateChange={(state) => setGameState(state)} />
+            )}
 
             {/* Phase 3+: Technology Tree */}
             {gameState.phase >= 3 && <TechnologyTree gameState={gameState} updateGameState={updateGameState} />}
