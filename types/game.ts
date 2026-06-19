@@ -1,3 +1,5 @@
+export const STATE_UPDATE_BATCH_SIZE = 10;
+
 export interface GameState {
   phase: number
   resources: Resources
