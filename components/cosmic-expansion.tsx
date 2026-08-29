@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { GameState, VonNeumannProbe, AlienCivilization, AlienOffer, CosmicEvent, UniversalResource } from "@/types/game"
+import type { GameState, VonNeumannProbe, AlienCivilization, AlienOffer, CosmicEvent, CosmicChoice, UniversalResource } from "@/types/game"
 import { applyAlienOffer, canAffordGameCost, payGameCost } from "@/lib/game-transactions"
 
 interface CosmicExpansionProps {
@@ -144,7 +144,7 @@ const ALIEN_CIVILIZATIONS: AlienCivilization[] = [
   },
 ]
 
-const COSMIC_EVENTS: CosmicEvent[] = [
+export const COSMIC_EVENTS: CosmicEvent[] = [
   {
     id: "heat_death_approach",
     name: "Approaching Heat Death",
@@ -226,6 +226,60 @@ const COSMIC_EVENTS: CosmicEvent[] = [
   },
 ]
 
+export function CosmicEventPrompt({
+  event,
+  gameState,
+  onChoice,
+  onDefer,
+}: {
+  event: CosmicEvent
+  gameState: Pick<GameState, "resources" | "capabilities">
+  onChoice: (choice: CosmicChoice) => void
+  onDefer: () => void
+}) {
+  return (
+    <Card className="border-red-500 bg-red-50/50">
+      <CardHeader>
+        <CardTitle className="text-red-700">Cosmic Event</CardTitle>
+        <CardDescription className="text-red-600">{event.name}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm">{event.description}</p>
+
+        <div className="space-y-3">
+          <h4 className="font-medium">Choose your response:</h4>
+          {event.choices.map((choice) => (
+            <Button
+              key={choice.id}
+              variant="outline"
+              className="w-full text-left h-auto p-4 bg-transparent"
+              disabled={!canAffordGameCost(gameState, choice.cost)}
+              onClick={() => onChoice(choice)}
+            >
+              <div className="space-y-1">
+                <div className="font-medium">{choice.text}</div>
+                <div className="text-xs text-muted-foreground">
+                  Success chance: {Math.round(choice.success * 100)}%
+                </div>
+                <div className="text-xs text-muted-foreground">{choice.consequences}</div>
+              </div>
+            </Button>
+          ))}
+        </div>
+
+        <div className="space-y-2 border-t pt-4">
+          <Button variant="secondary" className="w-full" onClick={onDefer}>
+            Return to cosmic controls (free)
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Defer this event without spending resources or capabilities. Another event may appear in a later cycle.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionProps) {
   const [activeProbes, setActiveProbes] = useState<Map<string, VonNeumannProbe>>(new Map())
   const [discoveredCivilizations, setDiscoveredCivilizations] = useState<AlienCivilization[]>([])
@@ -248,9 +302,11 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
 
     if (availableEvents.length > 0) {
       const selectedEvent = availableEvents[Math.floor(Math.random() * availableEvents.length)]
-      setCurrentEvent(selectedEvent)
+      setCurrentEvent((current) => current ?? selectedEvent)
     }
-  }, [gameState.gameTime, currentEvent, gameState.phase])
+    // Roll only on a game cycle/phase change. Resolving or deferring an event
+    // must return to the controls without immediately rolling another one.
+  }, [gameState.gameTime, gameState.phase])
 
   // Civilization discovery
   useEffect(() => {
@@ -334,43 +390,18 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
 
   if (currentEvent) {
     return (
-      <Card className="border-red-500 bg-red-50/50">
-        <CardHeader>
-          <CardTitle className="text-red-700">Cosmic Event</CardTitle>
-          <CardDescription className="text-red-600">{currentEvent.name}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm">{currentEvent.description}</p>
-
-          <div className="space-y-3">
-            <h4 className="font-medium">Choose your response:</h4>
-            {currentEvent.choices.map((choice) => (
-              <Button
-                key={choice.id}
-                variant="outline"
-                className="w-full text-left h-auto p-4 bg-transparent"
-                disabled={!canAffordGameCost(gameState, choice.cost)}
-                onClick={() => {
-                  const paid = payGameCost(gameState, choice.cost)
-                  if (!paid) return
-                  // Handle cosmic event choice
-                  const success = Math.random() < choice.success
-                  if (success) updateGameState(paid)
-                  setCurrentEvent(null)
-                }}
-              >
-                <div className="space-y-1">
-                  <div className="font-medium">{choice.text}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Success chance: {Math.round(choice.success * 100)}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">{choice.consequences}</div>
-                </div>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <CosmicEventPrompt
+        event={currentEvent}
+        gameState={gameState}
+        onChoice={(choice) => {
+          const paid = payGameCost(gameState, choice.cost)
+          if (!paid) return
+          const success = Math.random() < choice.success
+          if (success) updateGameState(paid)
+          setCurrentEvent(null)
+        }}
+        onDefer={() => setCurrentEvent(null)}
+      />
     )
   }
 
