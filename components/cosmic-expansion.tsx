@@ -226,6 +226,10 @@ export const COSMIC_EVENTS: CosmicEvent[] = [
   },
 ]
 
+/**
+ * Render affordability-checked responses with an always-available free return.
+ * Delegate choices and deferral to callbacks without modifying game balances.
+ */
 export function CosmicEventPrompt({
   event,
   gameState,
@@ -280,6 +284,7 @@ export function CosmicEventPrompt({
   )
 }
 
+/** Manage probes and encounters while preserving a free return from event prompts. */
 export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionProps) {
   const [activeProbes, setActiveProbes] = useState<Map<string, VonNeumannProbe>>(new Map())
   const [discoveredCivilizations, setDiscoveredCivilizations] = useState<AlienCivilization[]>([])
@@ -373,6 +378,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
     })
   }
 
+  /** Update the civilization relationship only after the complete trade is accepted. */
   const handleAlienEncounter = (civilization: AlienCivilization, offer: AlienOffer) => {
     const updates = applyAlienOffer(gameState, offer)
     if (!updates) return

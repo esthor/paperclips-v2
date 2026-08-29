@@ -21,18 +21,26 @@ const REPUTATION_KEYS: ReadonlySet<string> = new Set([
   "publicTrust", "scientificCredibility", "corporateValue", "governmentSuspicion",
 ])
 
+/** Recognize declared resource fields without accepting inherited object keys. */
 function isResourceKey(key: string): key is keyof Resources {
   return RESOURCE_KEYS.has(key)
 }
 
+/** Recognize capability fields so their costs never debit the resource group. */
 function isCapabilityKey(key: string): key is keyof Capabilities {
   return CAPABILITY_KEYS.has(key)
 }
 
+/** Restrict reputation effects to the game's declared reputation fields. */
 function isReputationKey(key: string): key is keyof Reputation {
   return REPUTATION_KEYS.has(key)
 }
 
+/**
+ * Check each cost against its resource or capability balance without mutation.
+ * Unknown keys, negative/non-finite costs, and insufficient/non-finite balances
+ * return false. An empty cost is affordable.
+ */
 export function canAffordGameCost(state: Balances, cost: GameAmounts): boolean {
   return Object.entries(cost).every(([key, amount]) => {
     if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) return false
@@ -43,6 +51,10 @@ export function canAffordGameCost(state: Balances, cost: GameAmounts): boolean {
   })
 }
 
+/**
+ * Return cloned balance groups with every cost deducted, or null when any cost
+ * is invalid or unaffordable. The input remains unchanged on both paths.
+ */
 export function payGameCost(state: Balances, cost: GameAmounts): Balances | null {
   if (!canAffordGameCost(state, cost)) return null
   const next = { resources: { ...state.resources }, capabilities: { ...state.capabilities } }
@@ -53,6 +65,12 @@ export function payGameCost(state: Balances, cost: GameAmounts): Balances | null
   return next
 }
 
+/**
+ * Pay costs, then add flat resource/capability and nested capability benefits
+ * to copies.
+ * Return null for an invalid/unaffordable cost, invalid benefit, or non-finite
+ * result; no partial payment or reward is ever written to the input state.
+ */
 export function applyAlienOffer(state: Balances, offer: AlienOffer): Balances | null {
   const next = payGameCost(state, offer.cost)
   if (!next) return null
@@ -76,6 +94,11 @@ export function applyAlienOffer(state: Balances, offer: AlienOffer): Balances | 
   return next
 }
 
+/**
+ * Require a nonempty set of resource conditions to pass strict comparisons.
+ * Use a supplied below bound before above; reject unknown resources and missing
+ * or non-finite evaluated bounds/balances. Resources are never modified.
+ */
 export function isResourceCrisisTriggered(
   resources: Resources,
   conditions: ResourceCrisis["triggerCondition"],
@@ -93,6 +116,11 @@ export function isResourceCrisisTriggered(
   })
 }
 
+/**
+ * Pay resource-only costs and add resource, reputation, and alignment effects
+ * to copies. Return null on invalid/unaffordable costs or non-finite effects
+ * and results. Input state and capabilities remain unchanged, including failure.
+ */
 export function applyCrisisSolution(
   state: Pick<GameState, "resources" | "capabilities" | "reputation">,
   solution: CrisisSolution,

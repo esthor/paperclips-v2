@@ -119,6 +119,7 @@ const RESOURCE_CRISES: ResourceCrisis[] = [
   },
 ]
 
+/** Manage resource operations, allocation, and affordability-checked crisis responses. */
 export function ResourceManagement({ gameState, updateGameState }: ResourceManagementProps) {
   const [activeOperations, setActiveOperations] = useState<Map<string, number>>(new Map())
   const [currentCrisis, setCurrentCrisis] = useState<ResourceCrisis | null>(null)
@@ -141,6 +142,7 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     }
   }, [gameState.resources, currentCrisis])
 
+  /** Pay resource inputs and alignment cost before starting the operation timer. */
   const startOperation = (operation: ResourceOperation) => {
     // Check if we have required inputs
     const canAfford = Object.entries(operation.inputs).every(([resource, cost]) => {
@@ -192,6 +194,7 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     })
   }
 
+  /** Clear the crisis only when its complete resource transaction is accepted. */
   const handleCrisisSolution = (solution: CrisisSolution) => {
     const updates = applyCrisisSolution(gameState, solution)
     if (!updates) return

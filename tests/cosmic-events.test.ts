@@ -8,6 +8,7 @@ import type { GameState } from "../types/game"
 
 type ActionProps = { children?: ReactNode; disabled?: boolean; onClick?: () => void }
 
+/** Collect prompt actions for callback assertions without mounting a browser DOM. */
 function buttons(node: ReactNode): ReactElement<ActionProps>[] {
   const found: ReactElement<ActionProps>[] = []
   Children.forEach(node, (child) => {

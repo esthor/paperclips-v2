@@ -3,6 +3,7 @@ import test from "node:test"
 import { applyAlienOffer, applyCrisisSolution, canAffordGameCost, isResourceCrisisTriggered, payGameCost } from "../lib/game-transactions"
 import type { AlienOffer, CrisisSolution, GameState } from "../types/game"
 
+/** Create independent balances so transaction tests can detect input mutation. */
 function balances(): Pick<GameState, "resources" | "capabilities" | "reputation"> {
   return {
     resources: {
