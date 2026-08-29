@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import type { GameState, Decision, EthicalFramework, MoralUncertainty } from "@/types/game"
+import type { GameState, Decision, Choice, EthicalFramework, MoralUncertainty } from "@/types/game"
 
 interface DecisionEngineProps {
   gameState: GameState
@@ -296,6 +296,7 @@ const ETHICAL_FRAMEWORKS: EthicalFramework[] = [
   },
 ]
 
+/** Present phase decisions and apply their authored state patches. */
 export function DecisionEngine({ gameState, updateGameState }: DecisionEngineProps) {
   const [currentDecision, setCurrentDecision] = useState<Decision | null>(null)
   const [moralUncertainty, setMoralUncertainty] = useState<MoralUncertainty>({
@@ -308,7 +309,8 @@ export function DecisionEngine({ gameState, updateGameState }: DecisionEnginePro
   const availableDecisions =
     PHASE_DECISIONS[gameState.phase]?.filter((decision) => !gameState.completedDecisions.includes(decision.id)) || []
 
-  const handleChoice = (decision: Decision, choice: any) => {
+  /** Record the choice and merge its authored group effects as replacement values. */
+  const handleChoice = (decision: Decision, choice: Choice) => {
     const updates: Partial<GameState> = {
       completedDecisions: [...gameState.completedDecisions, decision.id],
     }

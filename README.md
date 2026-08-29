@@ -28,3 +28,15 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+## Development checks
+
+Install the committed dependencies with `pnpm install --frozen-lockfile`.
+When running inside another pnpm workspace, add `--ignore-workspace` to keep
+this game's dependencies isolated.
+
+Run `pnpm typecheck`, `pnpm test`, and `pnpm build` before proposing a change.
+The focused tests cover resource/capability costs, partial crisis effects,
+alien benefits, and optional crisis thresholds. They do not establish game
+balance or completion of every phase. The production build also checks types;
+the existing lint configuration remains separate.

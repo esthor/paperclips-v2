@@ -38,13 +38,32 @@ export interface Reputation {
   governmentSuspicion: number
 }
 
+// Some thresholds and declared costs refer to capabilities, not just resources.
+export type GameAmounts = Partial<Resources & Capabilities>
+
+// Effects specify only the fields they change within each state group.
+// Each feature retains its existing assignment or addition semantics.
+export interface GameEffects {
+  resources?: Partial<Resources>
+  capabilities?: Partial<Capabilities>
+  reputation?: Partial<Reputation>
+}
+
+export type ResourceEffects = Partial<Resources> & {
+  reputation?: Partial<Reputation>
+}
+
+export type AlienBenefits = GameAmounts & {
+  capabilities?: Partial<Capabilities>
+}
+
 export interface Phase {
   id: number
   name: string
   subtitle: string
   description: string
   objectives: string[]
-  unlockThreshold: Partial<Resources>
+  unlockThreshold: GameAmounts
 }
 
 export interface Decision {
@@ -63,7 +82,7 @@ export interface Decision {
 export interface Choice {
   id: string
   text: string
-  effects: Partial<GameState>
+  effects: GameEffects
   alignmentImpact: number
   description: string
   ethicalReasoning?: string
@@ -107,7 +126,7 @@ export interface ResourceOperation {
   resourceType: keyof Resources
   phase: number
   inputs: Partial<Resources>
-  outputs: Partial<Resources & Capabilities>
+  outputs: GameAmounts
   duration: number
   efficiency: number
   ethicalCost: number
@@ -119,7 +138,7 @@ export interface ResourceCrisis {
   name: string
   description: string
   triggerCondition: Record<string, { below?: number; above?: number }>
-  effects: Partial<GameState>
+  effects: ResourceEffects
   solutions: CrisisSolution[]
 }
 
@@ -127,7 +146,7 @@ export interface CrisisSolution {
   id: string
   name: string
   cost: Partial<Resources>
-  effect: any
+  effect: ResourceEffects
   alignmentImpact: number
 }
 
@@ -214,8 +233,8 @@ export interface AlienOffer {
   id: string
   name: string
   description: string
-  cost: Partial<Resources>
-  benefit: any
+  cost: GameAmounts
+  benefit: AlienBenefits
 }
 
 export interface CosmicEvent {
@@ -224,14 +243,14 @@ export interface CosmicEvent {
   description: string
   probability: number
   phase: number
-  effects: Partial<GameState>
+  effects: GameEffects
   choices: CosmicChoice[]
 }
 
 export interface CosmicChoice {
   id: string
   text: string
-  cost: Partial<Resources>
+  cost: GameAmounts
   success: number
   consequences: string
 }

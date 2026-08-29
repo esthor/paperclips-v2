@@ -7,7 +7,8 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
-import type { GameState, ResourceOperation, ResourceCrisis } from "@/types/game"
+import type { GameState, ResourceOperation, ResourceCrisis, CrisisSolution } from "@/types/game"
+import { applyCrisisSolution, canAffordGameCost, isResourceCrisisTriggered } from "@/lib/game-transactions"
 
 interface ResourceManagementProps {
   gameState: GameState
@@ -118,6 +119,7 @@ const RESOURCE_CRISES: ResourceCrisis[] = [
   },
 ]
 
+/** Manage resource operations, allocation, and affordability-checked crisis responses. */
 export function ResourceManagement({ gameState, updateGameState }: ResourceManagementProps) {
   const [activeOperations, setActiveOperations] = useState<Map<string, number>>(new Map())
   const [currentCrisis, setCurrentCrisis] = useState<ResourceCrisis | null>(null)
@@ -131,20 +133,16 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
   useEffect(() => {
     if (currentCrisis) return
 
-    const triggeredCrisis = RESOURCE_CRISES.find((crisis) => {
-      return Object.entries(crisis.triggerCondition).every(([resource, condition]) => {
-        const currentValue = gameState.resources[resource as keyof typeof gameState.resources] || 0
-        if ("below" in condition) return currentValue < condition.below
-        if ("above" in condition) return currentValue > condition.above
-        return false
-      })
-    })
+    const triggeredCrisis = RESOURCE_CRISES.find((crisis) =>
+      isResourceCrisisTriggered(gameState.resources, crisis.triggerCondition),
+    )
 
     if (triggeredCrisis) {
       setCurrentCrisis(triggeredCrisis)
     }
   }, [gameState.resources, currentCrisis])
 
+  /** Pay resource inputs and alignment cost before starting the operation timer. */
   const startOperation = (operation: ResourceOperation) => {
     // Check if we have required inputs
     const canAfford = Object.entries(operation.inputs).every(([resource, cost]) => {
@@ -164,7 +162,6 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     setActiveOperations((prev) => new Map(prev.set(operation.id, operation.duration)))
 
     updateGameState({
-      resources: newResources,
       resources: {
         ...newResources,
         alignment: newResources.alignment - operation.ethicalCost,
@@ -197,36 +194,11 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
     })
   }
 
-  const handleCrisisSolution = (crisis: ResourceCrisis, solution: any) => {
-    const newResources = { ...gameState.resources }
-    const newReputation = { ...gameState.reputation }
-
-    // Apply costs
-    Object.entries(solution.cost).forEach(([resource, cost]) => {
-      if (resource in newResources) {
-        newResources[resource as keyof typeof newResources] -= cost
-      }
-    })
-
-    // Apply effects
-    Object.entries(solution.effect).forEach(([key, value]) => {
-      if (key === "reputation" && typeof value === "object") {
-        Object.entries(value).forEach(([repKey, repValue]) => {
-          newReputation[repKey as keyof typeof newReputation] += repValue
-        })
-      } else if (key in newResources) {
-        newResources[key as keyof typeof newResources] += value as number
-      }
-    })
-
-    updateGameState({
-      resources: {
-        ...newResources,
-        alignment: newResources.alignment + solution.alignmentImpact,
-      },
-      reputation: newReputation,
-    })
-
+  /** Clear the crisis only when its complete resource transaction is accepted. */
+  const handleCrisisSolution = (solution: CrisisSolution) => {
+    const updates = applyCrisisSolution(gameState, solution)
+    if (!updates) return
+    updateGameState(updates)
     setCurrentCrisis(null)
   }
 
@@ -301,7 +273,8 @@ export function ResourceManagement({ gameState, updateGameState }: ResourceManag
                 key={solution.id}
                 variant="outline"
                 className="w-full text-left h-auto p-4 bg-transparent"
-                onClick={() => handleCrisisSolution(currentCrisis, solution)}
+                onClick={() => handleCrisisSolution(solution)}
+                disabled={!canAffordGameCost(gameState, solution.cost)}
               >
                 <div className="space-y-1">
                   <div className="font-medium">{solution.name}</div>
