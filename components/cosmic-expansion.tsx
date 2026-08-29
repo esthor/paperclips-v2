@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { GameState, VonNeumannProbe, AlienCivilization, CosmicEvent, UniversalResource } from "@/types/game"
+import type { GameState, VonNeumannProbe, AlienCivilization, AlienOffer, CosmicEvent, UniversalResource } from "@/types/game"
+import { applyAlienOffer, canAffordGameCost, payGameCost } from "@/lib/game-transactions"
 
 interface CosmicExpansionProps {
   gameState: GameState
@@ -316,34 +317,9 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
     })
   }
 
-  const handleAlienEncounter = (civilization: AlienCivilization, offer: any) => {
-    const updates: Partial<GameState> = {}
-
-    // Apply costs and benefits
-    if (offer.cost) {
-      updates.resources = { ...gameState.resources }
-      Object.entries(offer.cost).forEach(([resource, cost]) => {
-        if (updates.resources && resource in updates.resources) {
-          updates.resources[resource as keyof typeof updates.resources] -= cost as number
-        }
-      })
-    }
-
-    if (offer.benefit) {
-      if (!updates.resources) updates.resources = { ...gameState.resources }
-      if (!updates.capabilities) updates.capabilities = { ...gameState.capabilities }
-
-      Object.entries(offer.benefit).forEach(([key, value]) => {
-        if (key in gameState.resources && updates.resources) {
-          updates.resources[key as keyof typeof updates.resources] += value as number
-        } else if (key in gameState.capabilities && updates.capabilities) {
-          updates.capabilities[key as keyof typeof updates.capabilities] += value as number
-        } else if (key === "efficiency" && updates.capabilities) {
-          updates.capabilities.efficiency += value as number
-        }
-      })
-    }
-
+  const handleAlienEncounter = (civilization: AlienCivilization, offer: AlienOffer) => {
+    const updates = applyAlienOffer(gameState, offer)
+    if (!updates) return
     updateGameState(updates)
 
     // Update civilization relationship
@@ -373,18 +349,13 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
                 key={choice.id}
                 variant="outline"
                 className="w-full text-left h-auto p-4 bg-transparent"
+                disabled={!canAffordGameCost(gameState, choice.cost)}
                 onClick={() => {
+                  const paid = payGameCost(gameState, choice.cost)
+                  if (!paid) return
                   // Handle cosmic event choice
                   const success = Math.random() < choice.success
-                  if (success && choice.cost) {
-                    const newResources = { ...gameState.resources }
-                    Object.entries(choice.cost).forEach(([resource, cost]) => {
-                      if (resource in newResources) {
-                        newResources[resource as keyof typeof newResources] -= cost
-                      }
-                    })
-                    updateGameState({ resources: newResources })
-                  }
+                  if (success) updateGameState(paid)
                   setCurrentEvent(null)
                 }}
               >
@@ -545,6 +516,7 @@ export function CosmicExpansion({ gameState, updateGameState }: CosmicExpansionP
                             variant="outline"
                             className="w-full text-left h-auto p-3 bg-transparent"
                             onClick={() => handleAlienEncounter(civilization, offer)}
+                            disabled={!canAffordGameCost(gameState, offer.cost)}
                           >
                             <div className="space-y-1">
                               <div className="font-medium text-sm">{offer.name}</div>
