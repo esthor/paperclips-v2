@@ -1,3 +1,5 @@
+export const PHASE_TRANSITION_DELAY = 100;
+
 export interface GameState {
   phase: number
   resources: Resources
